@@ -52,6 +52,7 @@ class irc(minqlbot.Plugin):
         self.add_hook("chat", self.handle_game_chat)
         self.add_hook("player_connect", self.handle_player_connect)
         self.add_hook("player_disconnect", self.handle_player_disconnect)
+        self.add_command("say_irc", self.say_irc)
 
         # Static instance so we don't waste resources making a new one every time.
         self.irc_bot_channel = IrcAdminChannel(self)
@@ -72,6 +73,17 @@ class irc(minqlbot.Plugin):
         self.irc.quit("Plugin unloaded!")
         self.irc.close()
     
+    def say_irc(self, player, msg, channel):
+        #channel.reply("^7output to IRC:.")
+        num = msg.__len__()
+        if num == 0:
+            return
+        con_msg = ""
+        for x in range(1, num):
+            con_msg =  con_msg + " " + self.translate_colors(msg[x])
+        self.privmsg(self.channel, "<{}> {}\r\n"
+            .format(self.translate_colors(player.name), self.translate_colors(con_msg)))
+    
     def privmsg(self, channel, msg):
         self.irc.out("PRIVMSG {} :{}\r\n".format(channel, msg))
     
@@ -83,8 +95,9 @@ class irc(minqlbot.Plugin):
             # TODO: More elegant solution to msg.startswith("^6<^7")
             return
         elif channel == "chat":
-            self.privmsg(self.channel, "<{}> {}\r\n"
-                .format(self.translate_colors(player.name), self.translate_colors(msg)))
+            return
+            #self.privmsg(self.channel, "<{}> {}\r\n"
+            #    .format(self.translate_colors(player.name), self.translate_colors(msg[1])))
         elif channel == "team_chat":
             self.privmsg(self.channel, "(Team) <{}> {}\r\n"
                 .format(self.translate_colors(player.name), self.translate_colors(msg)))
