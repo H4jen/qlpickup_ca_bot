@@ -99,9 +99,11 @@ class irc(minqlbot.Plugin):
             #self.privmsg(self.channel, "<{}> {}\r\n"
             #    .format(self.translate_colors(player.name), self.translate_colors(msg[1])))
         elif channel == "team_chat":
-            self.privmsg(self.channel, "(Team) <{}> {}\r\n"
-                .format(self.translate_colors(player.name), self.translate_colors(msg)))
+            return
+            #self.privmsg(self.channel, "(Team) <{}> {}\r\n"
+            #   .format(self.translate_colors(player.name), self.translate_colors(msg)))
         elif channel == "tell":
+            return
             self.privmsg_admin("[{}] {}\r\n"
                 .format(self.translate_colors(player.name), self.translate_colors(msg)))
     
@@ -150,24 +152,37 @@ class irc(minqlbot.Plugin):
         # .cmd Send command to bot as admin.
         elif split_msg[0].startswith(minqlbot.COMMAND_PREFIX) and channel.lower() == self.admin_channel.lower() and len(split_msg):
             minqlbot.COMMANDS.handle_input(minqlbot.DummyPlayer(minqlbot.NAME), msg_text, self.irc_bot_channel)
+        elif split_msg[0] == ".say":
+            num = split_msg.__len__()
+            if num == 0:
+                return
+            con_msg = ""
+            for x in range(1, num):
+                con_msg =  con_msg + " " + self.translate_colors(split_msg[x])
+            self.msg("^6<^7{}^6> ^2{}".format(user, con_msg))
         # Anything else is sent as a message to the server.
         elif channel.lower() == self.channel.lower():
-            self.msg("^6<^7{}^6> ^2{}".format(user, msg_text))
+            return
+            #self.msg("^6<^7{}^6> ^2{}".format(user, msg_text))
     
     def handle_player_connect(self, player):
         name = player.clean_name
-        self.privmsg(self.channel, "{} connected.\r\n".format(self.translate_colors(player.name)))
+        #self.privmsg(self.channel, "{} connected.\r\n".format(self.translate_colors(player.name)))
     
     def handle_player_disconnect(self, player, reason):
         name = player.clean_name
         if reason == "disconnect" or reason == "unknown":
-            self.privmsg(self.channel, "{} disconnected.\r\n".format(self.translate_colors(player.name)))
+            #self.privmsg(self.channel, "{} disconnected.\r\n".format(self.translate_colors(player.name)))
+            return
         elif reason == "kick":
-            self.privmsg(self.channel, "{} was kicked.\r\n".format(self.translate_colors(player.name)))
+            #self.privmsg(self.channel, "{} was kicked.\r\n".format(self.translate_colors(player.name)))
+            return
         elif reason == "timeout":
-            self.privmsg(self.channel, "{} timed out.\r\n".format(self.translate_colors(player.name)))
+            #self.privmsg(self.channel, "{} timed out.\r\n".format(self.translate_colors(player.name)))
+            return
         elif reason == "ragequit":
-            self.privmsg(self.channel, "{} \x02ragequits\x02!\r\n".format(self.translate_colors(player.name)))
+            #self.privmsg(self.channel, "{} \x02ragequits\x02!\r\n".format(self.translate_colors(player.name)))
+            return
 
     def translate_colors(self, text):
         if not self.color_translation:
