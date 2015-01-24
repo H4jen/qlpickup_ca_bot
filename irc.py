@@ -53,6 +53,9 @@ class irc(minqlbot.Plugin):
         self.add_hook("player_connect", self.handle_player_connect)
         self.add_hook("player_disconnect", self.handle_player_disconnect)
         self.add_command("say_irc", self.say_irc)
+        self.add_command("topic", self.topic)
+        self.add_command("add", self.qladd)
+        self.add_command("auth", self.anna_auth)
 
         # Static instance so we don't waste resources making a new one every time.
         self.irc_bot_channel = IrcAdminChannel(self)
@@ -64,7 +67,8 @@ class irc(minqlbot.Plugin):
         self.admin_channel_pass = self.config["IRC"]["AdminChannelPassword"]
         self.color_translation = self.config["IRC"].getboolean("TranslateColors", fallback=False)
         self.irc_name = "QL" + minqlbot.NAME
-        self.irc = SimpleIrc(self.irc_name, "irc.quakenet.org", 6667, self.channel,
+        #minqlbot.debug(self.channel)
+        self.irc = SimpleIrc(self.irc_name, self.server, 6667, self.channel,
                              self.admin_channel, self.admin_channel_pass, self)
         self.irc_thread = Thread(target=self.irc.run)
         self.irc_thread.start()
@@ -83,6 +87,37 @@ class irc(minqlbot.Plugin):
             con_msg =  con_msg + " " + self.translate_colors(msg[x])
         self.privmsg(self.channel, "<{}> {}\r\n"
             .format(self.translate_colors(player.name), self.translate_colors(con_msg)))
+            
+    def topic(self, player, msg, channel):
+        #self.irc.join("JOIN #irc.haj \r\n")
+        #self.privmsg(self.channel, "<{}> {}\r\n"
+        #    .format(self.translate_colors(player.name), self.translate_colors(con_msg)))
+            
+        #minqlbot.debug(self.channel)
+        self.irc.out("TOPIC {}\r\n".format(self.channel))
+        
+        #self.irc.out("PRIVMSG {} :{}\r\n".format(channel, msg))
+    
+    def qladd(self, player, msg, channel):
+        #channel.reply("^7output to IRC:.")
+        num = msg.__len__()
+        if num == 0:
+            return
+        con_msg = ""
+        for x in range(1, num):
+            con_msg =  con_msg + " " + self.translate_colors(msg[x])
+        self.privmsg(self.channel, "!qladd {}\r\n"
+            .format(self.translate_colors(player.name)))
+    
+    def anna_auth(self, player, msg, channel):
+        #channel.reply("^7output to IRC:.")
+        num = msg.__len__()
+        if num == 0:
+            return
+        con_msg = ""
+        for x in range(1, num):
+            con_msg =  con_msg + " " + self.translate_colors(msg[x])
+        self.privmsg(self.channel, "!auth")
     
     def privmsg(self, channel, msg):
         self.irc.out("PRIVMSG {} :{}\r\n".format(channel, msg))
@@ -107,6 +142,32 @@ class irc(minqlbot.Plugin):
             self.privmsg_admin("[{}] {}\r\n"
                 .format(self.translate_colors(player.name), self.translate_colors(msg)))
     
+    def handle_332(self, msg):
+        #minqlbot.debug(msg)
+        #self.privmsg(channel,msg)
+        r = re.match(r":([^ ]+).+ 332 ([^ ]+) ([^ ]+) :(.+)", msg)
+        #:port80c.se.quakenet.org 332 QLhajen #qlpickup.dev :wegwgwegwe
+        if not r:
+            return
+        #minqlbot.debug(r.group(1))
+        #user = r.group(1)
+        #channel = r.group(2)
+        topic = r.group(4)
+        #split_msg = msg_text.split()
+        #minqlbot.debug(topic)
+        # Topic contained in msg_text. Send topic to ql.
+        self.msg("^6<^7TOPIC^6> ^5{}".format(topic))
+    
+    def handle_topic(self, msg):
+        r = re.match(r":([^ ]+)!.+ TOPIC ([^ ]+) :(.+)", msg)
+        if not r:
+            return
+        user = r.group(1)
+        channel = r.group(2)
+        topic = r.group(3)
+        # Topic contained in msg_text. Send topic to ql.
+        self.msg("^6<^7TOPIC^6> ^5{}".format(topic))
+            
     def handle_incoming(self, msg):
         r = re.match(r":([^ ]+)!.+ PRIVMSG ([^ ]+) :(.+)", msg)
         if not r:
@@ -115,7 +176,6 @@ class irc(minqlbot.Plugin):
         channel = r.group(2)
         msg_text = r.group(3)
         split_msg = msg_text.split()
-        
         # COMMANDS
         # .team - Send to team chat instead.
         if split_msg[0] == ".team" and channel.lower() == self.channel.lower():
@@ -167,6 +227,7 @@ class irc(minqlbot.Plugin):
     
     def handle_player_connect(self, player):
         name = player.clean_name
+        #minqlbot.debug(name + "connected")
         #self.privmsg(self.channel, "{} connected.\r\n".format(self.translate_colors(player.name)))
     
     def handle_player_disconnect(self, player, reason):
@@ -223,6 +284,7 @@ class SimpleIrc(asynchat.async_chat):
 
 
     def out(self, out):
+        #minqlbot.debug(out)
         self.push(out.encode())
 
     def run(self):
@@ -245,15 +307,22 @@ class SimpleIrc(asynchat.async_chat):
         self.close()
 
     def collect_incoming_data(self, data):
+        #minqlbot.debug(data)
         self.ibuf += data.decode("utf8", "ignore")
 
     def found_terminator(self):
-        #self.handler.debug(self.ibuf)
+        #Uncomment to get output on irc buffer inpcoming
+        #minqlbot.debug(self.ibuf)
         split_msg = self.ibuf.split()
         if len(split_msg) > 1 and split_msg[0].lower() == "ping":
             self.pong(split_msg[1].lstrip(":"))
         elif len(split_msg) > 3 and split_msg[1].lower() == "privmsg":
             self.handler.handle_incoming(self.ibuf)
+        elif len(split_msg) > 3 and split_msg[1].lower() == "topic":
+            self.handler.handle_topic(self.ibuf)
+        #Stuff to do after topic query
+        elif split_msg[1] == "332":
+            self.handler.handle_332(self.ibuf)
         # Save all the server's options and shit.
         elif split_msg[1] == "005":
             for option in split_msg[3:-1]:
@@ -264,19 +333,20 @@ class SimpleIrc(asynchat.async_chat):
                     self.serveroptions[opt_pair[0]] = opt_pair[1]
         # Stuff to do after we get the MOTD.
         elif re.match(r":[^ ]+ (376|422) .+", self.ibuf):
-            # Auth with Q if we have a user/pass pair in config and we're connected to Qnet.
-            if ( "QUsername" in self.handler.config["IRC"] and
-                 "QPassword" in self.handler.config["IRC"] and
-                 "NETWORK" in self.serveroptions and
+            #minqlbot.debug("========== ERROR: SimpleIrc ==========")
+                       # Auth with Q if we have a user/pass pair in config and we're connected to Qnet.
+            if ("QUsername" in self.handler.config["IRC"] and
+                 "QPassword" in self.handler.config["IRC"] and 
+                 "NETWORK" in self.serveroptions and 
                  self.serveroptions["NETWORK"] == "QuakeNet" ):
+                #minqlbot.debug("HERE")
                 username = self.handler.config["IRC"]["QUsername"]
                 password = self.handler.config["IRC"]["QPassword"]
                 self.msg("Q@CServe.quakenet.org", "AUTH {0} {1}".format(username, password))
+                minqlbot.debug("AUTH IRC: " + "AUTH {0} {1}".format(username, password))
                 if "QHidden" in self.handler.config["IRC"] and self.handler.config["IRC"].getboolean("QHidden"):
                     self.mode(self.nick, "+x")
-        
             self.out("JOIN {0},{1} {2},{2}\r\n".format(self.channel, self.admin_channel, self.password))
-        
         self.ibuf = ""
 
     def msg(self, recipient, msg):
