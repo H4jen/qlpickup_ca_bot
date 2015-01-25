@@ -194,6 +194,8 @@ class irc(minqlbot.Plugin):
         self.caps=r.group(3) 
         minqlbot.debug(self.players)
         minqlbot.debug(self.caps)
+        self.msg("^6<^7PLAYERS^6> ^5{}".format(self.players))
+        self.msg("^6<^7CAPS^6> ^5{}".format(self.caps))
             
     def handle_incoming(self, msg):
         r = re.match(r":([^ ]+)!.+ PRIVMSG ([^ ]+) :(.+)", msg)
