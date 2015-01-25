@@ -54,6 +54,9 @@ class irc(minqlbot.Plugin):
         self.add_hook("player_disconnect", self.handle_player_disconnect)
         self.add_command("say_irc", self.say_irc)
         self.add_command("topic", self.topic)
+        self.add_command("lastgame", self.lastgame)
+        self.add_command("players", self.lastgame_players)
+        self.add_command("caps", self.lastgame_caps)
         self.add_command("add", self.qladd)
         self.add_command("auth", self.anna_auth)
 
@@ -72,6 +75,8 @@ class irc(minqlbot.Plugin):
                              self.admin_channel, self.admin_channel_pass, self)
         self.irc_thread = Thread(target=self.irc.run)
         self.irc_thread.start()
+        self.caps = "No caps data! Try to refresh with !lastgame"
+        self.players = "No player data! Try to refresh with !lastgame"
     
     def handle_unload(self):
         self.irc.quit("Plugin unloaded!")
@@ -97,6 +102,22 @@ class irc(minqlbot.Plugin):
         self.irc.out("TOPIC {}\r\n".format(self.channel))
         
         #self.irc.out("PRIVMSG {} :{}\r\n".format(channel, msg))
+        
+    def lastgame(self, player, msg, channel):
+        #self.irc.join("JOIN #irc.haj \r\n")
+        #self.privmsg(self.channel, "<{}> {}\r\n"
+        #    .format(self.translate_colors(player.name), self.translate_colors(con_msg))
+        #minqlbot.debug(self.channel)
+        self.privmsg(self.channel, "!lastgame \r\n")
+        #self.irc.out("TOPIC {}\r\n".format(self.channel))
+        
+        #self.irc.out("PRIVMSG {} :{}\r\n".format(channel, msg))
+    
+    def lastgame_players(self, player, msg, channel):
+        self.msg("^6<^7PLAYERS^6> ^5{}".format(self.players))
+    
+    def lastgame_caps(self, player, msg, channel):
+        self.msg("^6<^7CAPS^6> ^5{}".format(self.caps))
     
     def qladd(self, player, msg, channel):
         #channel.reply("^7output to IRC:.")
@@ -146,16 +167,9 @@ class irc(minqlbot.Plugin):
         #minqlbot.debug(msg)
         #self.privmsg(channel,msg)
         r = re.match(r":([^ ]+).+ 332 ([^ ]+) ([^ ]+) :(.+)", msg)
-        #:port80c.se.quakenet.org 332 QLhajen #qlpickup.dev :wegwgwegwe
         if not r:
             return
-        #minqlbot.debug(r.group(1))
-        #user = r.group(1)
-        #channel = r.group(2)
         topic = r.group(4)
-        #split_msg = msg_text.split()
-        #minqlbot.debug(topic)
-        # Topic contained in msg_text. Send topic to ql.
         self.msg("^6<^7TOPIC^6> ^5{}".format(topic))
     
     def handle_topic(self, msg):
@@ -167,6 +181,19 @@ class irc(minqlbot.Plugin):
         topic = r.group(3)
         # Topic contained in msg_text. Send topic to ql.
         self.msg("^6<^7TOPIC^6> ^5{}".format(topic))
+    
+    #used to get !lastgame players + caps data to struct
+    def handle_notice(self, msg):
+        r = re.match(r":([^ ]+)!.+ Players:(.+).+Captains:(.+)", msg)
+        if not r:
+            return
+        user = r.group(1)
+        if not user == "anna^":
+            return
+        self.players=r.group(2)
+        self.caps=r.group(3) 
+        minqlbot.debug(self.players)
+        minqlbot.debug(self.caps)
             
     def handle_incoming(self, msg):
         r = re.match(r":([^ ]+)!.+ PRIVMSG ([^ ]+) :(.+)", msg)
@@ -262,6 +289,24 @@ class irc(minqlbot.Plugin):
                 skip = True
             else:
                 res += text[i]
+                
+    def strip_irc_colors(self, text):
+        if not self.color_translation:
+            return self.clean_text(text)
+
+        text = str(text)
+        res = ""
+        skip = False
+        for i in range(len(text)):
+            if skip:
+                skip = False
+                continue
+
+            if text[i] == '^' and i + 1 < len(text) and text[i+1] != '^':
+                res += COLORS[ord(text[i+1]) % 8]
+                skip = True
+            else:
+                res += text[i]
 
         return res
 
@@ -312,7 +357,7 @@ class SimpleIrc(asynchat.async_chat):
 
     def found_terminator(self):
         #Uncomment to get output on irc buffer inpcoming
-        #minqlbot.debug(self.ibuf)
+        minqlbot.debug(self.ibuf)
         split_msg = self.ibuf.split()
         if len(split_msg) > 1 and split_msg[0].lower() == "ping":
             self.pong(split_msg[1].lstrip(":"))
@@ -320,6 +365,8 @@ class SimpleIrc(asynchat.async_chat):
             self.handler.handle_incoming(self.ibuf)
         elif len(split_msg) > 3 and split_msg[1].lower() == "topic":
             self.handler.handle_topic(self.ibuf)
+        elif len(split_msg) > 3 and split_msg[1].lower() == "notice":
+            self.handler.handle_notice(self.ibuf)
         #Stuff to do after topic query
         elif split_msg[1] == "332":
             self.handler.handle_332(self.ibuf)
