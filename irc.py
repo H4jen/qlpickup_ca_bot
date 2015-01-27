@@ -58,6 +58,7 @@ class irc(minqlbot.Plugin):
         self.add_command("players", self.lastgame_players)
         self.add_command("caps", self.lastgame_caps)
         self.add_command("add", self.qladd)
+        self.add_command("remove", self.qlremove)
         self.add_command("auth", self.anna_auth)
 
         # Static instance so we don't waste resources making a new one every time.
@@ -128,6 +129,17 @@ class irc(minqlbot.Plugin):
         for x in range(1, num):
             con_msg =  con_msg + " " + self.translate_colors(msg[x])
         self.privmsg(self.channel, "!qladd {}\r\n"
+            .format(self.translate_colors(player.name)))
+    
+    def qlremove(self, player, msg, channel):
+        #channel.reply("^7output to IRC:.")
+        num = msg.__len__()
+        if num == 0:
+            return
+        con_msg = ""
+        for x in range(1, num):
+            con_msg =  con_msg + " " + self.translate_colors(msg[x])
+        self.privmsg(self.channel, "!qlremove {}\r\n"
             .format(self.translate_colors(player.name)))
     
     def anna_auth(self, player, msg, channel):
